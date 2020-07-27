@@ -24,7 +24,8 @@ public class StringConvertUtils {
 		} else if (t instanceof Clob) {
 			return ClobToString((Clob) t);
 		} else if (t instanceof Blob) {
-			return convertBLOBtoString((Blob) t);
+//			return convertBLOBtoString((Blob) t,"ISO-8859-1");
+			return convertBLOBtoString((Blob) t,"GBK");
 		} else {
 			return t.toString().trim();
 		}
@@ -61,10 +62,20 @@ public class StringConvertUtils {
 	}
 
 	public static String convertBLOBtoString(Blob blob) {
+		
+		return convertBLOBtoString(blob,"");
+	}
+	public static String convertBLOBtoString(Blob blob,String charsetName) {
 		String newStr="";
 		try {
-			newStr = new String(blob.getBytes((long)1, (int)(blob.length())));
-		} catch (SQLException e) {
+			if(charsetName==null||charsetName.isEmpty()){
+				newStr = new String(blob.getBytes((long)1, (int)(blob.length())));
+			}else{
+//				newStr = new String(blob.getBytes((long)1, (int)(blob.length())),"ISO-8859-1");
+				newStr = new String(blob.getBytes((long)1, (int)(blob.length())),"GBK");
+
+			}
+		} catch (Exception e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}

@@ -2,6 +2,7 @@ package twb.utils.file.xls;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -22,24 +23,121 @@ import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.ss.usermodel.WorkbookFactory;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
-
-public class XLSUtils
-{
+public class XLSUtils {
 	static SimpleDateFormat sFormat = new SimpleDateFormat("yyyy-MM-dd");
 	static Map<String, CellStyle> styleMap = new HashMap<String, CellStyle>(); // 存储单元格样式的Map
 
-	
 	/**
 	 * 读excel
 	 * 
 	 * @param filePath
 	 *            excel路径
 	 */
-	public static void readExcel(String filePath)
-	{
+	public static String getCellValue(Workbook book, String name, int rowum, int cellNum) {
+		Sheet sheet = book.getSheet(name);
+		if (sheet == null) {
+			throw new RuntimeException("sheet获取为空:" + name);
+		}
+		Row row = null;
+		row = sheet.getRow(rowum - 1);
+		if (row == null) {
+			throw new RuntimeException("row获取为空:" + rowum);
+		}
+		Cell cell = row.getCell(cellNum - 1);
+		if (cell == null) {
+			throw new RuntimeException("cell获取为空:" + cellNum);
+		}
+
+		int type = cell.getCellType();
+		String value = "";
+		switch (type) {
+		case 0:
+			if (DateUtil.isCellDateFormatted(cell)) {
+				Date date = cell.getDateCellValue();
+				value = sFormat.format(date);
+			} else {
+				double tempValue = cell.getNumericCellValue();
+				value = String.valueOf(tempValue);
+			}
+			break;
+		case 1:
+			value = cell.getStringCellValue();
+			break;
+		case 2:
+			value = cell.getCellFormula();
+			break;
+		case 3:
+			value = cell.getStringCellValue();
+			break;
+		case 4:
+			boolean tempValue = cell.getBooleanCellValue();
+			value = String.valueOf(tempValue);
+			break;
+		case 5:
+			byte b = cell.getErrorCellValue();
+			value = String.valueOf(b);
+		default:
+			throw new RuntimeException("数据解析失败cellNum:" + cellNum + ",rownum:" + rowum);
+		}
+		return value;
+	}
+
+	/**
+	 * 写内容到excel中
+	 * 
+	 * @throws IOException
+	 */
+	public static void writeXls(Workbook book, String sheetName, int rowNum, int cellNum, String cellValue) {
+
+		Sheet sheet = book.getSheet(sheetName);
+		if (sheet == null) {
+			throw new RuntimeException("sheet获取为空:" + sheetName);
+		}
+		Row row = null;
+		row = sheet.getRow(rowNum - 1);
+		if (row == null) {
+			row = sheet.createRow(rowNum - 1);
+		}
+		Cell cell = row.getCell(cellNum - 1);
+		if (cell == null) {
+			cell = row.createCell(cellNum - 1);
+		}
+		cell.setCellValue(cellValue);
+
+	}
+
+	public static void writeFile(Workbook book, String xlsPath) {
+		FileOutputStream out=null;
+		try {
+			out = new FileOutputStream(xlsPath);
+			book.write(out);
+		} catch (Exception e) {
+			e.printStackTrace();
+			throw new RuntimeException("文件写入失败:",e);
+		} finally {
+			try {
+				if (out != null) {
+					out.flush();
+					out.close();
+				}
+
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+
+	}
+
+	/**
+	 * 读excel
+	 * 
+	 * @param filePath
+	 *            excel路径
+	 */
+	public static void readExcel(String filePath) {
 		Workbook book = null;
-		try
-		{
+		try {
 			book = getExcelWorkbook(filePath);
 			Sheet sheet = getSheetByNum(book, 1);
 			System.out.println("sheet名称是：" + sheet.getSheetName());
@@ -47,37 +145,28 @@ public class XLSUtils
 			int lastRowNum = sheet.getLastRowNum();
 
 			Row row = null;
-			for (int i = 0; i <= lastRowNum; i++)
-			{
+			for (int i = 0; i <= lastRowNum; i++) {
 				row = sheet.getRow(i);
-				if (row != null)
-				{
+				if (row != null) {
 					int lastCellNum = row.getLastCellNum();
 					Cell cell = null;
 					StringBuilder sb = null;
-					for (int j = 0; j < lastCellNum; j++)
-					{
+					for (int j = 0; j < lastCellNum; j++) {
 						cell = row.getCell(j);
-						if (cell != null)
-						{
+						if (cell != null) {
 							sb = new StringBuilder("第" + (j + 1) + "列的单元格内容是：");
 							String type_cn = null;
-							String type_style = cell.getCellStyle().getDataFormatString()
-									.toUpperCase();
+							String type_style = cell.getCellStyle().getDataFormatString().toUpperCase();
 							String type_style_cn = getCellStyleByChinese(type_style);
 							int type = cell.getCellType();
 							String value = "";
-							switch (type)
-							{
+							switch (type) {
 							case 0:
-								if (DateUtil.isCellDateFormatted(cell))
-								{
+								if (DateUtil.isCellDateFormatted(cell)) {
 									type_cn = "NUMBER-DATE";
 									Date date = cell.getDateCellValue();
 									value = sFormat.format(date);
-								}
-								else
-								{
+								} else {
 									type_cn = "NUMBER";
 									double tempValue = cell.getNumericCellValue();
 									value = String.valueOf(tempValue);
@@ -113,9 +202,7 @@ public class XLSUtils
 					}
 				}
 			}
-		}
-		catch (Exception e)
-		{
+		} catch (Exception e) {
 			e.printStackTrace();
 		}
 	}
@@ -126,81 +213,59 @@ public class XLSUtils
 	 * @param type_style
 	 * @return
 	 */
-	private static String getCellStyleByChinese(String type_style)
-	{
+	private static String getCellStyleByChinese(String type_style) {
 		String cell_style_cn = "";
-		if (type_style.contains("GENERAL"))
-		{
+		if (type_style.contains("GENERAL")) {
 			cell_style_cn = "常规";
-		}
-		else if (type_style.equals("_ * #,##0.00_ ;_ * \\-#,##0.00_ ;_ * \"-\"??_ ;_ @_ "))
-		{
+		} else if (type_style.equals("_ * #,##0.00_ ;_ * \\-#,##0.00_ ;_ * \"-\"??_ ;_ @_ ")) {
 			cell_style_cn = "会计专用";
-		}
-		else if (type_style.equals("0"))
-		{
+		} else if (type_style.equals("0")) {
 			cell_style_cn = "整数";
-		}
-		else if (type_style.contains("YYYY/MM") || type_style.contains("YYYY\\-MM"))
-		{
+		} else if (type_style.contains("YYYY/MM") || type_style.contains("YYYY\\-MM")) {
 			cell_style_cn = "日期";
-		}
-		else if (type_style.equals("0.00%"))
-		{
+		} else if (type_style.equals("0.00%")) {
 			cell_style_cn = "百分比";
-		}
-		else
-		{
+		} else {
 			cell_style_cn = "不符合规定格式类型:" + type_style;
 			// cell_style_cn = type_style;
 		}
 		return cell_style_cn;
 	}
-	public static void testWrite(String xlsPath,List list)
-	{
-		testWrite(xlsPath, list,"sheet1");
+
+	public static void testWrite(String xlsPath, List list) {
+		testWrite(xlsPath, list, "sheet1");
 	}
+
 	/**
 	 * 写内容到excel中
 	 * 
 	 * @throws IOException
 	 */
-	public static void testWrite(String xlsPath,List list,String sheets)
-	{
+	public static void testWrite(String xlsPath, List list, String sheets) {
 
-		if(sheets==null||sheets.trim().isEmpty()){
+		if (sheets == null || sheets.trim().isEmpty()) {
 			sheets = "sheet1";
 		}
-		
-//		Sheet sheet1 = (Sheet) wb.createSheet(sheets);
+
+		// Sheet sheet1 = (Sheet) wb.createSheet(sheets);
 		File file = new File(xlsPath);
-		if (!file.exists())
-		{
+		if (!file.exists()) {
 			Workbook wb = new XSSFWorkbook();
 			// 创建sheet对象
 			OutputStream outputStream = null;
-			try
-			{
+			try {
 				outputStream = new FileOutputStream(file);
 				wb.write(outputStream);
 
-			}
-			catch (Exception e)
-			{
+			} catch (Exception e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
-			}
-			finally
-			{
-				if (outputStream != null)
-				{
-					try
-					{
+			} finally {
+				if (outputStream != null) {
+					try {
 						outputStream.flush();
 						outputStream.close();
-					}
-					catch (IOException e)
-					{
+					} catch (IOException e) {
 						// TODO Auto-generated catch block
 						e.printStackTrace();
 					}
@@ -208,56 +273,44 @@ public class XLSUtils
 
 			}
 		}
-		
+
 		FileOutputStream out = null;
-		try
-		{
+		try {
 			Workbook book = getExcelWorkbook(xlsPath);
-			
+
 			Sheet sheet = book.createSheet(sheets);
-			
 
 			Map<String, String> map = new HashMap<String, String>();
-//			List<Map<String, String>> list = new LinkedList<Map<String, String>>();
-//			map.put("0", "4,INT");
-//			map.put("6", "小红,GENERAL");
-//			map.put("2", "18,INT");
-//			map.put("3", "1990-03-10,DATE");
-//			map.put("4", "0.056,PERCENT");
-//			map.put("5", "4800,DOUBLE");
-//			list.add(map);
+			// List<Map<String, String>> list = new LinkedList<Map<String,
+			// String>>();
+			// map.put("0", "4,INT");
+			// map.put("6", "小红,GENERAL");
+			// map.put("2", "18,INT");
+			// map.put("3", "1990-03-10,DATE");
+			// map.put("4", "0.056,PERCENT");
+			// map.put("5", "4800,DOUBLE");
+			// list.add(map);
 
 			int startRow = 1;
 			boolean result = writeToExcel(list, sheet, startRow);
 
-			
-
-			if (result)
-			{
+			if (result) {
 				out = new FileOutputStream(xlsPath);
 				book.write(out);
-//				System.out.println(xlsPath+"文件写入完成！");
+				// System.out.println(xlsPath+"文件写入完成！");
 
 			}
-		}
-		catch (Exception e)
-		{
+		} catch (Exception e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
-		}
-		finally
-		{
-			try
-			{
-				if (out != null)
-				{
+		} finally {
+			try {
+				if (out != null) {
 					out.flush();
 					out.close();
 				}
 
-			}
-			catch (IOException e)
-			{
+			} catch (IOException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
@@ -307,66 +360,54 @@ public class XLSUtils
 	 * 
 	 * @param list
 	 */
-	public static boolean writeToExcel(List list, Sheet sheet, int startRow)
-	{
+	public static boolean writeToExcel(List list, Sheet sheet, int startRow) {
 		boolean result = false;
-		try
-		{
+		try {
 			Map<Integer, Object> map = null;
 			Row row = null;
-			for (int i = 0; i < list.size(); i++)
-			{
+			for (int i = 0; i < list.size(); i++) {
 				map = (Map<Integer, Object>) list.get(i);
 				row = sheet.getRow(startRow - 1);
-				if (row == null)
-				{
+				if (row == null) {
 					row = sheet.createRow(startRow - 1);
 				}
 				startRow++;
 				Cell cell = null;
 
 				BigDecimal db = null;
-				for (Map.Entry<Integer, Object> entry : map.entrySet())
-				{
-					
+				for (Map.Entry<Integer, Object> entry : map.entrySet()) {
+
 					int colNum = entry.getKey();
 
 					Object value_type = entry.getValue();
 
-					String style ="GENERAL";
+					String style = "GENERAL";
 					cell = row.getCell(colNum);
-					if (cell == null)
-					{
+					if (cell == null) {
 						cell = row.createCell(colNum);
 					}
-					if (value_type instanceof String )
-					{
+					if (value_type instanceof String) {
 						String valueStr = value_type.toString();
-						if(valueStr.length()>32000){
-							valueStr = valueStr.substring(0,32000);
-							valueStr+="......";
+						if (valueStr.length() > 32000) {
+							valueStr = valueStr.substring(0, 32000);
+							valueStr += "......";
 						}
 						cell.setCellValue(valueStr);
-					}
-					else
-					{
-						if ( value_type instanceof Double)
-						{
-							
+					} else {
+						if (value_type instanceof Double) {
+
 							cell.setCellValue((double) value_type);
 							style = "DOUBLE";
 						}
-						
-						if (value_type instanceof Integer )
-						{
-							
+
+						if (value_type instanceof Integer) {
+
 							cell.setCellValue((int) value_type);
 							style = "INT";
 						}
-						
-						else if (value_type instanceof Date)
-						{
-							cell.setCellValue((Date)value_type);
+
+						else if (value_type instanceof Date) {
+							cell.setCellValue((Date) value_type);
 							style = "DATE";
 						}
 						cell.setCellStyle(styleMap.get(style));
@@ -374,9 +415,7 @@ public class XLSUtils
 				}
 			}
 			result = true;
-		}
-		catch (Exception e)
-		{
+		} catch (Exception e) {
 			e.printStackTrace();
 			throw new RuntimeException(e.getMessage());
 		}
@@ -388,35 +427,30 @@ public class XLSUtils
 	 * 
 	 * @throws IOException
 	 */
-	public static Workbook getExcelWorkbook(String filePath) throws IOException
-	{
+	public static Workbook getExcelWorkbook(String filePath) {
 		Workbook book = null;
 		File file = null;
 		FileInputStream fis = null;
 
-		try
-		{
+		try {
 			file = new File(filePath);
-			if (!file.exists())
-			{
-				// throw new RuntimeException("文件不存在");
-			}
-			else
-			{
+			if (!file.exists()) {
+				throw new RuntimeException("文件不存在");
+			} else {
 				fis = new FileInputStream(file);
 				book = WorkbookFactory.create(fis);
 				initStyleMap(book);
 			}
-		}
-		catch (Exception e)
-		{
+		} catch (Exception e) {
 			throw new RuntimeException(e.getMessage());
-		}
-		finally
-		{
-			if (fis != null)
-			{
-				fis.close();
+		} finally {
+			if (fis != null) {
+				try {
+					fis.close();
+				} catch (IOException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
 			}
 		}
 		return book;
@@ -427,41 +461,33 @@ public class XLSUtils
 	 * 
 	 * @param number
 	 */
-	public static Sheet getSheetByNum(Workbook book, int number)
-	{
+	public static Sheet getSheetByNum(Workbook book, int number) {
 		Sheet sheet = null;
-		try
-		{
+		try {
 			sheet = book.getSheetAt(number - 1);
 			// if(sheet == null){
 			// sheet = book.createSheet("Sheet"+number);
 			// }
-		}
-		catch (Exception e)
-		{
+		} catch (Exception e) {
 			throw new RuntimeException(e.getMessage());
 		}
 		return sheet;
 	}
-	
+
 	/**
 	 * 根据索引 返回Sheet
 	 * 
 	 * @param number
 	 */
-	public static Sheet getLastSheet(Workbook book)
-	{
+	public static Sheet getLastSheet(Workbook book) {
 		Sheet sheet = null;
-		try
-		{
+		try {
 			int num = book.getNumberOfSheets();
 			sheet = book.getSheetAt(num - 1);
 			// if(sheet == null){
 			// sheet = book.createSheet("Sheet"+number);
 			// }
-		}
-		catch (Exception e)
-		{
+		} catch (Exception e) {
 			throw new RuntimeException(e.getMessage());
 		}
 		return sheet;
@@ -471,13 +497,11 @@ public class XLSUtils
 	 * 初始化格式Map
 	 */
 
-	public static void initStyleMap(Workbook book)
-	{
+	public static void initStyleMap(Workbook book) {
 		DataFormat hssfDF = book.createDataFormat();
 
 		CellStyle doubleStyle = book.createCellStyle(); // 会计专用
-		doubleStyle.setDataFormat(hssfDF
-				.getFormat("_ * #,##0.0000_ ;_ * \\-#,##0.0000_ ;_ * \"-\"??_ ;_ @_ ")); // poi写入后为会计专用
+		doubleStyle.setDataFormat(hssfDF.getFormat("_ * #,##0.0000_ ;_ * \\-#,##0.0000_ ;_ * \"-\"??_ ;_ @_ ")); // poi写入后为会计专用
 		styleMap.put("DOUBLE", doubleStyle);
 
 		CellStyle intStyle = book.createCellStyle(); // 会计专用
@@ -486,7 +510,7 @@ public class XLSUtils
 
 		CellStyle yyyyMMddStyle = book.createCellStyle();// 日期yyyyMMdd
 		yyyyMMddStyle.setDataFormat(hssfDF.getFormat("yyyy-MM-dd HH:mm:ss"));
-//		yyyyMMddStyle.setDataFormat(hssfDF.getFormat("yyyy-MM-dd"));
+		// yyyyMMddStyle.setDataFormat(hssfDF.getFormat("yyyy-MM-dd"));
 		styleMap.put("DATE", yyyyMMddStyle);
 
 		CellStyle percentStyle = book.createCellStyle();// 百分比
@@ -494,18 +518,14 @@ public class XLSUtils
 		styleMap.put("PERCENT", percentStyle);
 	}
 
-	public static String toLetterString(int number)
-	{
-		if (number < 1)
-		{//
+	public static String toLetterString(int number) {
+		if (number < 1) {//
 			return null;
 		}
-		if (number < 27)
-		{
+		if (number < 27) {
 			return String.valueOf((char) ('A' + number - 1));
 		}
-		if (number % 26 == 0)
-		{
+		if (number % 26 == 0) {
 			return toLetterString(number / 26 - 1) + "Z";
 		}
 		return toLetterString(number / 26) + String.valueOf((char) ('A' + number % 26 - 1));
