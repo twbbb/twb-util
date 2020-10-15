@@ -108,6 +108,10 @@ public class FileUtils {
 
 		return getFileData(getProjectFile(fileName),null);
 	}
+	
+	public static List<String> getFileData( Class cla) throws Exception {
+		return getFileData(getClassResFile(cla, cla.getSimpleName()),null);
+	}
 
 	public static List<String> getFileData( Class cla,String fileName) throws Exception {
 		return getFileData(getClassResFile(cla, fileName),null);
